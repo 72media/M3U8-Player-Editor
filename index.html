@@ -367,7 +367,8 @@
     .multi-view-btn {
       position: absolute;
       top: 10px;
-      right: 10px;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 10;
       background: rgba(0,0,0,0.7);
       color: white;
@@ -375,10 +376,61 @@
       padding: 5px 10px;
       border-radius: 3px;
       cursor: pointer;
+      margin-left: 60px;
     }
 
     .multi-view-btn:hover {
       background: rgba(0,184,148,0.7);
+    }
+
+    /* ปุ่มเต็มจอใหม่ */
+    .fullscreen-btn {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-right: 60px;
+    }
+
+    .fullscreen-btn:hover {
+      background: rgba(255, 59, 48, 0.7);
+    }
+
+    .fullscreen-icon {
+      color: #ff3b30;
+      margin-right: 5px;
+    }
+
+    /* สไตล์โหมดเต็มจอ */
+    .fullscreen-mode .screen-control {
+      display: none;
+    }
+
+    .fullscreen-mode .multi-view-btn,
+    .fullscreen-mode .fullscreen-btn {
+      display: none;
+    }
+
+    .fullscreen-mode .screen-item {
+      border: none !important;
+    }
+
+    /* ปุ่มควบคุมกลางจอ */
+    .center-controls {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 10px;
     }
   </style>
 </head>
@@ -497,6 +549,7 @@
     let multiViewMode = false;
     let activeScreenIndex = 0;
     let screenPlayers = [];
+    let fullscreenMode = false;
 
     // ตั้งค่า drag and drop เมื่อโหลดหน้าเว็บ
     document.addEventListener('DOMContentLoaded', function() {
@@ -570,21 +623,76 @@
               </div>
             </div>
           </div>
-          <button class="multi-view-btn" onclick="toggleMultiView()">โหมดจอเดียว</button>
+          <div class="center-controls">
+            <button class="fullscreen-btn" onclick="toggleFullscreenMode()"><span class="fullscreen-icon">◉</span>ดูแบบเต็มเฟรม</button>
+            <button class="multi-view-btn" onclick="toggleMultiView()">โหมดจอเดียว</button>
+          </div>
         `;
         
         // เติมข้อมูลช่องลงใน dropdown ของแต่ละจอ
         updateScreenSelectors();
         screenPlayers = Array(4).fill(null);
+        updateFullscreenButton();
       } else {
         // กลับสู่โหมดจอเดียว
         videoContainer.innerHTML = '<video id="m3u8-player" controls autoplay></video>';
         screenPlayers = [];
+        fullscreenMode = false;
         
         // หยุดการเล่นทั้งหมด
         if (hls) {
           hls.destroy();
           hls = null;
+        }
+      }
+    }
+
+    function toggleFullscreenMode() {
+      const videoContainer = document.getElementById('video-container');
+      const multiScreen = videoContainer.querySelector('.multi-screen');
+      
+      fullscreenMode = !fullscreenMode;
+      
+      if (fullscreenMode) {
+        // เข้าสู่โหมดเต็มจอ
+        if (!document.fullscreenElement) {
+          videoContainer.requestFullscreen().catch(err => {
+            alert(`Error attempting to enable fullscreen: ${err.message}`);
+          });
+        }
+        multiScreen.classList.add('fullscreen-mode');
+        document.querySelector('.fullscreen-btn').innerHTML = '<span class="fullscreen-icon">◉</span>ออกจากเต็มเฟรม';
+      } else {
+        // ออกจากโหมดเต็มจอ
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        }
+        multiScreen.classList.remove('fullscreen-mode');
+        document.querySelector('.fullscreen-btn').innerHTML = '<span class="fullscreen-icon">◉</span>ดูแบบเต็มเฟรม';
+      }
+    }
+
+    // ตรวจสอบการเปลี่ยนแปลงโหมดเต็มจอของเบราว์เซอร์
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && fullscreenMode) {
+        toggleFullscreenMode();
+      }
+    });
+
+    function updateFullscreenButton() {
+      const fullscreenBtn = document.querySelector('.fullscreen-btn');
+      if (!fullscreenBtn) return;
+      
+      // ตรวจสอบว่ามีช่องที่เล่นอยู่ครบ 4 ช่องหรือไม่
+      const activeScreens = screenPlayers.filter(player => player !== null).length;
+      
+      if (activeScreens === 4) {
+        fullscreenBtn.style.display = 'block';
+      } else {
+        fullscreenBtn.style.display = 'none';
+        // ถ้าอยู่ในโหมดเต็มจอและไม่ครบ 4 ช่อง ให้ออกจากโหมดเต็มจอ
+        if (fullscreenMode) {
+          toggleFullscreenMode();
         }
       }
     }
@@ -611,6 +719,8 @@
           selector.value = currentValue;
         }
       });
+      
+      updateFullscreenButton();
     }
 
     function playChannelOnScreen(url, screenIndex) {
@@ -620,6 +730,7 @@
           screenPlayers[screenIndex].destroy();
           screenPlayers[screenIndex] = null;
         }
+        updateFullscreenButton();
         return;
       }
       
@@ -648,6 +759,8 @@
       } else {
         alert('เบราว์เซอร์ของคุณไม่รองรับ HLS (m3u8)');
       }
+      
+      updateFullscreenButton();
     }
 
     function toggleEditor() {
